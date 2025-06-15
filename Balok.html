@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>3D Kotak</title>
+  <style>
+    body { background: #111; color: white; text-align: center; font-family: sans-serif; }
+    canvas { background: black; display: block; margin: auto; border: 1px solid #444; }
+  </style>
+</head>
+<body>
+  <h2>3D Kotak - Kiri (Permukaan Solid), Kanan (Kerangka Saja)</h2>
+  <p>Gunakan W/A/S/D untuk rotasi, Q untuk reset</p>
+  <canvas id="canvas" width="1200" height="600"></canvas>
+
+  <script>
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width, h = canvas.height;
+    const scale = 100;
+
+    const vertices = [
+      [-1, -1, -2], [1, -1, -2], [1, 1, -2], [-1, 1, -2],
+      [-1, -1, 2],  [1, -1, 2],  [1, 1, 2],  [-1, 1, 2]
+    ];
+
+    const faces = [
+      [0,1,2,3], [4,5,6,7], [0,1,5,4],
+      [3,2,6,7], [1,2,6,5], [0,3,7,4]
+    ];
+    const faceColors = ["#1abc9c", "#e67e22", "#3498db", "#9b59b6", "#f1c40f", "#e74c3c"];
+
+    const edges = [
+      [0,1], [1,2], [2,3], [3,0],
+      [4,5], [5,6], [6,7], [7,4],
+      [0,4], [1,5], [2,6], [3,7]
+    ];
+
+    let angleX = 0, angleY = 0;
+
+    function rotateX([x, y, z], a) {
+      return [x, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+    }
+    function rotateY([x, y, z], a) {
+      return [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
+    }
+    function project([x, y], offsetX = 0) {
+      return [w / 2 + x * scale + offsetX, h / 2 - y * scale];
+    }
+
+    function drawBoxWithSurface(offsetX) {
+      const rotated = vertices.map(p => rotateY(rotateX(p, angleX), angleY));
+      const projected = rotated.map(p => project([p[0], p[1]], offsetX));
+
+      const faceWithDepth = faces.map((face, idx) => {
+        const avgZ = face.reduce((sum, i) => sum + rotated[i][2], 0) / 4;
+        return { face, color: faceColors[idx % faceColors.length], depth: avgZ };
+      }).sort((a, b) => a.depth - b.depth);
+
+      faceWithDepth.forEach(({ face, color }) => {
+        const pts = face.map(i => projected[i]);
+        ctx.beginPath();
+        ctx.moveTo(pts[0][0], pts[0][1]);
+        pts.slice(1).forEach(p => ctx.lineTo(p[0], p[1]));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = "#ffffff";
+        ctx.stroke();
+      });
+    }
+
+    function drawBoxWireframeOnly(offsetX) {
+      const rotated = vertices.map(p => rotateY(rotateX(p, angleX), angleY));
+      const projected = rotated.map(p => project([p[0], p[1]], offsetX));
+
+      ctx.strokeStyle = "#00ffcc";
+      edges.forEach(([a, b]) => {
+        const [x1, y1] = projected[a];
+        const [x2, y2] = projected[b];
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+
+      drawBoxWithSurface(-300);  // kiri: kotak dengan permukaan
+      drawBoxWireframeOnly(+300); // kanan: hanya wireframe
+
+      requestAnimationFrame(draw);
+    }
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "w") angleX -= 0.05;
+      else if (e.key === "s") angleX += 0.05;
+      else if (e.key === "a") angleY -= 0.05;
+      else if (e.key === "d") angleY += 0.05;
+      else if (e.key === "q") angleX = angleY = 0;
+    });
+
+    draw();
+  </script>
+</body>
+</html>
